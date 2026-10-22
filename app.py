@@ -8,7 +8,7 @@ st.set_page_config(
     layout="wide"
 )
 
-CSV_PATH = "players.csv"
+CSV_PATH = "players_3120.csv"
 
 TIERS = [
     (80, "Best", "#7be495"),
