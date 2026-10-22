@@ -1,6 +1,5 @@
-import streamlit as st
 import pandas as pd
-import numpy as np
+import streamlit as st
 from sklearn.ensemble import RandomForestRegressor
 
 st.set_page_config(
@@ -9,365 +8,469 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------------- DESIGN ----------------
+CSV_PATH = "players.csv"
+
+TIERS = [
+    (80, "Best", "#7be495"),
+    (70, "Average", "#f5c542"),
+    (0, "Weak", "#e07a5f")
+]
 
 st.markdown("""
 <style>
 .stApp {
-    background: linear-gradient(135deg, #071b2b, #102c40, #123d38);
-    color: white;
+    background:
+        repeating-linear-gradient(
+            90deg,
+            rgba(255,255,255,.035) 0 90px,
+            transparent 90px 180px
+        ),
+        linear-gradient(180deg,#0a3318,#12502a 55%,#0d3b1e);
 }
 
-.block-container {
-    max-width: 1150px;
-    padding-top: 2rem;
-    padding-bottom: 3rem;
+.stApp::before {
+    content: "";
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    width: 420px;
+    height: 420px;
+    margin: -210px 0 0 -210px;
+    border: 3px solid rgba(255,255,255,.06);
+    border-radius: 50%;
+    pointer-events: none;
 }
 
-.hero {
-    padding: 35px;
-    border-radius: 24px;
-    background: linear-gradient(120deg, #123b4b, #164d42);
-    border: 1px solid #527d78;
-    margin-bottom: 25px;
+h1, h2, h3, p, label {
+    color: #ffffff;
 }
 
-.hero h1 {
-    font-size: 44px;
-    color: white !important;
+.card {
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 18px;
+    padding: 18px 22px;
+    margin-bottom: 12px;
 }
 
-.hero p {
-    color: #e4f5f1 !important;
-    font-size: 17px;
+.card small {
+    color: #e5e7eb !important;
+    opacity: 1;
 }
 
-/* DARK PLAYER DETAIL BOXES */
-
-div[data-testid="stMetric"] {
-    background: #164d42 !important;
-    border: 1px solid #5b9b83 !important;
-    border-radius: 16px !important;
-    padding: 20px !important;
-}
-
-div[data-testid="stMetric"] label,
-div[data-testid="stMetric"] label p,
-div[data-testid="stMetricLabel"],
-div[data-testid="stMetricLabel"] p {
-    color: #d8f3dc !important;
-}
-
-div[data-testid="stMetricValue"],
-div[data-testid="stMetricValue"] *,
-div[data-testid="stMetric"] [data-testid="stMetricValue"] * {
+.card h2 {
     color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
-    background: transparent !important;
+    margin: 4px 0 0 0;
 }
 
-/* INPUT BOXES */
-
-div[data-testid="stNumberInput"] input {
-    background: #173b42 !important;
-    color: white !important;
-    -webkit-text-fill-color: white !important;
-    border: 1px solid #5b9b83 !important;
+.badge {
+    display: inline-block;
+    padding: 6px 18px;
+    border-radius: 999px;
+    color: #102b19 !important;
+    font-weight: 700;
+    font-size: 1.1rem;
 }
 
-div[data-testid="stSelectbox"] div[data-baseweb="select"] {
-    background: #173b42 !important;
-    color: white !important;
+/* SELECTED DROPDOWN: WHITE BACKGROUND, DARK TEXT */
+div[data-baseweb="select"] > div {
+    background-color: #ffffff !important;
+    border: 2px solid #c6e84a !important;
 }
 
-div[data-testid="stSelectbox"] div[data-baseweb="select"] * {
+/* Selected player name, tier and position */
+div[data-baseweb="select"] input,
+div[data-baseweb="select"] input::placeholder {
+    color: #12351f !important;
+    -webkit-text-fill-color: #12351f !important;
+    opacity: 1 !important;
+}
+
+/* Dropdown selected value */
+div[data-baseweb="select"] div,
+div[data-baseweb="select"] span {
+    color: #12351f !important;
+    -webkit-text-fill-color: #12351f !important;
+    opacity: 1 !important;
+}
+
+/* Dropdown arrow */
+div[data-baseweb="select"] svg {
+    fill: #12351f !important;
+    color: #12351f !important;
+}
+
+/* OPEN DROPDOWN MENU */
+div[data-baseweb="popover"],
+div[data-baseweb="popover"] > div,
+div[data-baseweb="menu"],
+ul[role="listbox"] {
+    background-color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+/* All player names, Best, Average, Weak, CAM, CM, CDM, CF */
+li[role="option"],
+li[role="option"] div,
+li[role="option"] span,
+ul[role="listbox"] *,
+div[data-baseweb="popover"] * {
+    color: #12351f !important;
+    -webkit-text-fill-color: #12351f !important;
+    opacity: 1 !important;
+}
+
+/* Hover and selected dropdown option */
+li[role="option"]:hover,
+li[role="option"]:hover div,
+li[role="option"]:hover span,
+li[aria-selected="true"],
+li[aria-selected="true"] div,
+li[aria-selected="true"] span {
+    background-color: #d9f99d !important;
+    color: #12351f !important;
+    -webkit-text-fill-color: #12351f !important;
+}
+
+/* Number input */
+div[data-baseweb="input"],
+div[data-baseweb="base-input"],
+div[data-baseweb="input"] input {
+    background-color: #ffffff !important;
+    color: #12351f !important;
+    -webkit-text-fill-color: #12351f !important;
+}
+
+/* Number input buttons */
+.stNumberInput button {
+    background: #c6e84a !important;
+    color: #12351f !important;
+}
+
+/* Predict button */
+.stButton button {
+    background: #c6e84a !important;
+    border: 0 !important;
+    font-weight: 700 !important;
+}
+
+.stButton button,
+.stButton button * {
+    color: #12351f !important;
+}
+
+/* Tabs */
+button[data-baseweb="tab"] {
     color: #ffffff !important;
 }
 
-/* BUTTON */
-
-div.stButton > button,
-div[data-testid="stFormSubmitButton"] button {
-    background: #b9f56b !important;
-    color: #10251a !important;
-    border: none !important;
-    border-radius: 12px !important;
-    font-weight: bold !important;
-    min-height: 48px;
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #c6e84a !important;
 }
 
-/* FOOTBALL BANNERS */
-
-.football-banner {
-    padding: 24px;
-    margin: 22px 0;
-    text-align: center;
-    border-radius: 20px;
-    background: linear-gradient(120deg, #123b4b, #164d42);
-    border: 1px solid #527d78;
-}
-
-.football-banner h3 {
-    color: white !important;
-}
-
-.football-banner p {
-    color: #e4f5f1 !important;
+/* Data table */
+[data-testid="stDataFrame"] {
+    color: #12351f !important;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
 
-# ---------------- HEADER ----------------
-
-st.markdown("""
-<div class="hero">
-    <p>⚽ PLAYER PERFORMANCE ESTIMATOR</p>
-    <h1>Football Prediction</h1>
-    <p>
-        Discover football players, explore their performance,
-        and predict their overall rating using machine learning.
-    </p>
-    <h2>⚽ 🏆</h2>
-</div>
-""", unsafe_allow_html=True)
+def tier_of(rating):
+    for cutoff, name, color in TIERS:
+        if rating >= cutoff:
+            return name, color
 
 
-# ---------------- LOAD DATA ----------------
+def card(label, value):
+    return (
+        f'<div class="card">'
+        f'<small>{label}</small>'
+        f'<h2>{value}</h2>'
+        f'</div>'
+    )
+
 
 @st.cache_data
-def load_data():
-    data = pd.read_csv(
-        "players_3120.csv",
-        encoding="utf-8-sig",
-        low_memory=False
+def load(source):
+    df = pd.read_csv(source)
+
+    for col in ["Age", "Overall rating", "Potential"]:
+        df[col] = pd.to_numeric(
+            df[col].astype(str).str.extract(r"^(\d+)")[0],
+            errors="coerce"
+        )
+
+    df = df.dropna(
+        subset=["Age", "Overall rating", "Potential"]
+    ).drop_duplicates(subset="ID")
+
+    df["Team"] = (
+        df["Team & Contract"]
+        .astype(str)
+        .str.split("\n")
+        .str[0]
     )
 
-    data.columns = (
-        data.columns.astype(str)
-        .str.replace("\ufeff", "", regex=False)
-        .str.strip()
+    df["Tier"] = df["Overall rating"].apply(
+        lambda r: tier_of(r)[0]
     )
 
-    return data
+    return df.reset_index(drop=True)
 
 
-def find_column(data, names):
-    for name in names:
-        for col in data.columns:
-            if col.strip().lower() == name.lower():
-                return col
-    return None
+@st.cache_resource
+def train(df):
+    X = df[["Age", "Potential"]]
+    y = df["Overall rating"]
 
+    return RandomForestRegressor(
+        n_estimators=200,
+        random_state=42
+    ).fit(X, y)
 
-def to_number(series):
-    return pd.to_numeric(
-        series.astype(str)
-        .str.replace(",", "", regex=False)
-        .str.strip(),
-        errors="coerce"
-    )
-
-
-# ---------------- MAIN ----------------
 
 try:
-    df = load_data()
-
-    name_col = find_column(
-        df, ["name", "player name", "player", "full name"]
-    )
-
-    age_col = find_column(df, ["Age"])
-
-    overall_col = find_column(
-        df, ["Overall rating", "Overall_Rating", "Overall"]
-    )
-
-    potential_col = find_column(df, ["Potential"])
-
-    team_col = find_column(
-        df, ["Team", "Club", "Team & Contract", "Club & Contract"]
-    )
-
-    if name_col is None:
-        st.error("Player name column not found.")
-        st.write("CSV columns:", df.columns.tolist())
-        st.stop()
-
-    if age_col is None or overall_col is None or potential_col is None:
-        st.error("Age, Overall Rating, or Potential column not found.")
-        st.write("CSV columns:", df.columns.tolist())
-        st.stop()
-
-    df[name_col] = df[name_col].astype("string").str.strip()
-
-    df["_age"] = to_number(df[age_col])
-    df["_overall"] = to_number(df[overall_col])
-    df["_potential"] = to_number(df[potential_col])
-
-    clean = df.replace(
-        [np.inf, -np.inf], np.nan
-    ).dropna(
-        subset=[name_col, "_age", "_overall", "_potential"]
-    ).copy()
-
-    clean = clean[clean[name_col] != ""]
-
-    if len(clean) < 10:
-        st.error("Not enough valid player data in the CSV.")
-        st.stop()
-
-    # ---------------- TRAIN MODEL ----------------
-
-    X = clean[["_age", "_potential"]]
-    y = clean["_overall"]
-
-    model = RandomForestRegressor(
-        n_estimators=150,
-        random_state=42,
-        n_jobs=-1
-    )
-
-    model.fit(X, y)
-
-    # ---------------- PLAYER SELECTION ----------------
-
-    st.markdown("""
-    <div class="football-banner">
-        <h3>⚽ Choose Your Player 🏆</h3>
-        <p>Select a player to view their details.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    player_names = sorted(
-        clean[name_col].drop_duplicates().tolist()
-    )
-
-    selected_name = st.selectbox(
-        "Player Name",
-        player_names
-    )
-
-    player = clean[clean[name_col] == selected_name].iloc[0]
-
-    # ---------------- PLAYER DETAILS ----------------
-
-    st.subheader("Player Details")
-    st.markdown(f"### ⚽ {selected_name}")
-
-    c1, c2, c3, c4 = st.columns(4)
-
-    with c1:
-        st.metric("Age", f"{player['_age']:.0f} years")
-
-    with c2:
-        st.metric(
-            "Overall Rating",
-            f"{player['_overall']:.0f} / 100"
-        )
-
-    with c3:
-        st.metric(
-            "Potential",
-            f"{player['_potential']:.0f} / 100"
-        )
-
-    with c4:
-        team = "Not available"
-
-        if team_col:
-            team_value = str(player[team_col]).strip()
-
-            if team_value.lower() not in ["nan", "none", ""]:
-                team = team_value
-
-        st.metric("Team", team)
-
-    # ---------------- PREDICTION ----------------
-
-    st.markdown("""
-    <div class="football-banner">
-        <h3>⚽ Predict Player Rating 🏆</h3>
-        <p>Adjust the player's age and potential.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    with st.form("prediction_form"):
-        col1, col2 = st.columns(2)
-
-        with col1:
-            input_age = st.number_input(
-                "Player Age",
-                min_value=1.0,
-                max_value=100.0,
-                value=float(player["_age"]),
-                step=1.0
-            )
-
-        with col2:
-            input_potential = st.number_input(
-                "Player Potential",
-                min_value=0.0,
-                max_value=100.0,
-                value=float(player["_potential"]),
-                step=1.0
-            )
-
-        submitted = st.form_submit_button(
-            "⚽ Predict Overall Rating",
-            use_container_width=True
-        )
-
-    if submitted:
-        input_data = pd.DataFrame({
-            "_age": [input_age],
-            "_potential": [input_potential]
-        })
-
-        prediction = float(model.predict(input_data)[0])
-        prediction = max(0.0, min(100.0, prediction))
-
-        st.markdown("""
-        <div class="football-banner">
-            <h3>🏆 Matchday Prediction</h3>
-            <p>Your player's estimated rating is ready.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.metric(
-            "Predicted Overall Rating",
-            f"{prediction:.1f} / 100"
-        )
-
-        st.progress(int(round(prediction)))
-
-        st.caption(
-            "This machine-learning estimate is based on the dataset "
-            "and is not a guarantee of real-world performance."
-        )
-
-    # ---------------- DATASET ----------------
-
-    with st.expander("📊 View Football Player Dataset"):
-        st.write(f"Total players: {len(clean)}")
-        st.dataframe(df, use_container_width=True)
-
-    # ---------------- FOOTER ----------------
-
-    st.markdown("""
-    <div class="football-banner">
-        <h3>⚽ Football Prediction 🏆</h3>
-        <p>Powered by Python, Streamlit and Machine Learning.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    df = load(CSV_PATH)
 
 except FileNotFoundError:
-    st.error(
-        "players_3120.csv not found. Keep it in the same "
-        "folder as app.py."
+    up = st.file_uploader(
+        "Upload the Kaggle CSV file",
+        type="csv"
     )
 
-except Exception as e:
-    st.error(f"Something went wrong: {e}")
+    if not up:
+        st.stop()
+
+    df = load(up)
+
+
+model = train(df)
+
+st.markdown(
+    '<div class="card">'
+    '<small>🏟️ PLAYER PERFORMANCE ESTIMATOR</small>'
+    '<h1>⚽ Football Prediction</h1>'
+    '<p>Explore players, predict their overall rating '
+    'and see where they rank.</p>'
+    '</div>',
+    unsafe_allow_html=True
+)
+
+tab1, tab2, tab3 = st.tabs([
+    "⚽ Predict a player",
+    "🏆 Best / Average / Weak",
+    "👟 Weakest players"
+])
+
+
+with tab1:
+    name = st.selectbox("Player name", df["name"])
+
+    p = df[df["name"] == name].iloc[0]
+
+    c = st.columns(4)
+
+    details = [
+        ("Age", f"{int(p.Age)} years"),
+        ("Overall Rating", f"{int(p['Overall rating'])} / 100"),
+        ("Potential", f"{int(p.Potential)} / 100"),
+        ("Team", p.Team)
+    ]
+
+    for col, (k, v) in zip(c, details):
+        col.markdown(
+            card(k, v),
+            unsafe_allow_html=True
+        )
+
+    t, color = tier_of(p["Overall rating"])
+
+    st.markdown(
+        f'Current tier: <span class="badge" '
+        f'style="background:{color}">{t}</span>',
+        unsafe_allow_html=True
+    )
+
+    st.subheader("🥅 Predict Player Rating")
+
+    a, b = st.columns(2)
+
+    age = a.number_input(
+        "Player age",
+        min_value=15,
+        max_value=45,
+        value=int(p.Age)
+    )
+
+    pot = b.number_input(
+        "Player potential",
+        min_value=40,
+        max_value=99,
+        value=int(p.Potential)
+    )
+
+    if st.button(
+        "⚽ Predict Overall Rating",
+        use_container_width=True
+    ):
+        pred = float(
+            model.predict(
+                pd.DataFrame({
+                    "Age": [age],
+                    "Potential": [pot]
+                })
+            )[0]
+        )
+
+        t, color = tier_of(pred)
+
+        st.markdown(
+            card(
+                "Predicted overall rating",
+                f"{pred:.1f} / 100"
+            )
+            + f'<span class="badge" '
+            f'style="background:{color}">{t}</span>',
+            unsafe_allow_html=True
+        )
+
+        same = df[
+            df["Best position"] == p["Best position"]
+        ]
+
+        pct = (
+            same["Overall rating"] < pred
+        ).mean() * 100
+
+        st.write(
+            f"Among {len(same)} {p['Best position']} players, "
+            f"this beats {pct:.0f}%. "
+            f"Position average: "
+            f"{same['Overall rating'].mean():.1f}"
+        )
+
+
+with tab2:
+    f1, f2 = st.columns(2)
+
+    tier = f1.selectbox(
+        "Tier",
+        ["All"] + [t[1] for t in TIERS]
+    )
+
+    pos = f2.selectbox(
+        "Position",
+        ["All"] + sorted(
+            df["Best position"].dropna().unique()
+        )
+    )
+
+    view = df
+
+    if tier != "All":
+        view = view[view["Tier"] == tier]
+
+    if pos != "All":
+        view = view[view["Best position"] == pos]
+
+    st.dataframe(
+        view.sort_values(
+            "Overall rating",
+            ascending=False
+        ).head(10)[[
+            "name",
+            "Age",
+            "Overall rating",
+            "Potential",
+            "Best position",
+            "Team",
+            "Tier"
+        ]],
+        use_container_width=True,
+        hide_index=True
+    )
+
+    st.subheader("🏆 Players per tier")
+
+    st.bar_chart(
+        df["Tier"].value_counts().reindex(
+            [t[1] for t in TIERS]
+        )
+    )
+
+
+with tab3:
+    pos3 = st.selectbox(
+        "Position",
+        ["All"] + sorted(
+            df["Best position"].dropna().unique()
+        ),
+        key="weak_pos"
+    )
+
+    weak = (
+        df if pos3 == "All"
+        else df[df["Best position"] == pos3]
+    )
+
+    weak = weak.sort_values(
+        ["Overall rating", "Potential"]
+    ).reset_index(drop=True)
+
+    if weak.empty:
+        st.warning("No players found for this position.")
+
+    else:
+        w = weak.iloc[0]
+
+        t, color = tier_of(w["Overall rating"])
+
+        st.subheader("👟 Weakest player")
+
+        c = st.columns(4)
+
+        details = [
+            ("Name", w["name"]),
+            ("Age", f"{int(w.Age)} years"),
+            ("Overall Rating", f"{int(w['Overall rating'])} / 100"),
+            ("Potential", f"{int(w.Potential)} / 100")
+        ]
+
+        for col, (k, v) in zip(c, details):
+            col.markdown(
+                card(k, v),
+                unsafe_allow_html=True
+            )
+
+        st.markdown(
+            f'Tier: <span class="badge" '
+            f'style="background:{color}">{t}</span>',
+            unsafe_allow_html=True
+        )
+
+        avg = df["Overall rating"].mean()
+
+        st.write(
+            f"Dataset average rating is {avg:.1f}. "
+            f"This player is "
+            f"{avg - w['Overall rating']:.1f} "
+            f"points below it."
+        )
+
+        st.subheader("📉 10 weakest players")
+
+        st.dataframe(
+            weak.head(10)[[
+                "name",
+                "Age",
+                "Overall rating",
+                "Potential",
+                "Best position",
+                "Team",
+                "Tier"
+            ]],
+            use_container_width=True,
+            hide_index=True
+        )
